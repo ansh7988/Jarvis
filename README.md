@@ -1,5 +1,7 @@
 # Jarvis
 #This is code for Jarvis
+
+#Imports 
 import pyttsx3
 import os
 import speech_recognition as sr # type: ignore
@@ -13,9 +15,8 @@ import psutil
 import random
 import time
 import requests
-api_key = "b12a6ef2b4862eef2da6cb71bb9ecdd9"
-JARVIS_PASSWORD = "crazy coder"
-
+# put Javris passsword here
+# api key for weather api_key
 # To make the assistant speak, you can use the following code snippet. This code initializes the text-to-speech engine and defines a function to convert text to speech.
 def speak(audio):
     print(f"Jarvis: {audio}")
