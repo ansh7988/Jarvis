@@ -17,6 +17,7 @@ import time
 import requests
 # put Javris passsword here
 # api key for weather api_key
+NOTES_FOLDER = "Jarvis_Notes.txt"
 # To make the assistant speak, you can use the following code snippet. This code initializes the text-to-speech engine and defines a function to convert text to speech.
 def speak(audio):
     print(f"Jarvis: {audio}")
