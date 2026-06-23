@@ -499,3 +499,37 @@ if __name__ == "__main__":
             else:
 
                 speak("Contact not found")
+
+        #To take notes and save them to a text file, you can use the following code snippet. This code listens for the command "take note" followed by the note content, and saves it to a text file.
+        elif "write a note" in query:
+
+            speak("Start speaking. Say save note when finished.")
+
+            notes = ""
+
+            while True:
+
+                text = takeCommand().lower()
+
+                if "save note" in text:
+                    break
+
+                notes += text + "\n"
+
+            with open("Jarvis_Notes.txt", "a") as file:
+                file.write(notes)
+
+            speak("Note saved successfully")
+
+
+        elif "open my notes" in query:
+
+            speak("Opening your notes")
+            os.startfile("Jarvis_Notes.txt")
+
+        elif "read my notes" in query:
+
+            with open("Jarvis_Notes.txt", "r") as file:
+                notes = file.read()
+
+            speak(notes)
