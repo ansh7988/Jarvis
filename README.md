@@ -533,3 +533,36 @@ if __name__ == "__main__":
                 notes = file.read()
 
             speak(notes)
+
+
+        #To open folders and files on the system, you can use the following code snippet. This code listens for the command "open folder" followed by the folder path, and opens the specified folder using the default file explorer.
+        elif "open downloads" in query or "open download" in query:
+
+            speak("Opening Downloads")
+
+            os.startfile(os.path.join(os.path.expanduser("~"), "Downloads"))
+
+        elif "open documents" in query:
+
+            speak("Opening Documents")
+
+            os.startfile(os.path.join(os.path.expanduser("~"), "Documents"))
+
+        elif "open pictures" in query:
+
+            speak("Opening Pictures")
+
+            os.startfile(os.path.join(os.path.expanduser("~"), "Pictures"))
+
+        elif "open screenshots" in query:
+
+            speak("Opening Screenshots")
+
+            os.startfile(os.path.join(os.path.expanduser("~"), "Pictures", "Screenshots"))
+
+        elif "open This PC" in query or "open my computer" in query:
+
+            speak("Opening This PC")
+
+            os.startfile(os.path.join(os.path.expanduser("~"), "This PC"))
+            
