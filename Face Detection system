@@ -1,6 +1,16 @@
 import face_recognition
 import cv2
 import os
+import pyttsx3
+
+# -------------------- TTS --------------------
+
+def speak(text):
+    engine = pyttsx3.init()
+    engine.say(text)
+    engine.runAndWait()
+
+# -------------------- Load Known Faces --------------------
 
 known_encodings = []
 known_names = []
@@ -23,11 +33,16 @@ for file in os.listdir(folder):
 
 print("Loaded", len(known_encodings), "face(s)")
 
+# -------------------- Variables --------------------
+
 jarvis_started = False
 
-cap = cv2.VideoCapture(0)
 failed_attempts = 0
 MAX_ATTEMPTS = 3
+
+# -------------------- Camera --------------------
+
+cap = cv2.VideoCapture(0)
 
 while True:
 
@@ -61,25 +76,24 @@ while True:
 
             name = "Anshdeep"
 
-            print("Face verified")
-            print("Starting Jarvis...")
+            speak("Welcome Anshdeep")
+            speak("Face verified")
 
-            os.system("start cmd /k py -3.12 Jarvis.py")
+            jarvis_started = True
 
-            cap.release()
-            cv2.destroyAllWindows()
-
-            exit()
+            break
 
         else:
 
             failed_attempts += 1
 
-            print(f"Unknown face detected! Attempt {failed_attempts}/{MAX_ATTEMPTS}")
+            print(
+                f"Unknown face detected! Attempt {failed_attempts}/{MAX_ATTEMPTS}"
+            )
 
             if failed_attempts >= MAX_ATTEMPTS:
 
-                print("ACCESS DENIED")
+                speak("Access Denied")
 
                 cap.release()
                 cv2.destroyAllWindows()
@@ -104,10 +118,23 @@ while True:
             2
         )
 
+    if jarvis_started:
+        break
+
     cv2.imshow("Jarvis Face Recognition", frame)
 
     if cv2.waitKey(1) & 0xFF == ord("q"):
         break
 
+# -------------------- Cleanup --------------------
+
 cap.release()
 cv2.destroyAllWindows()
+
+# -------------------- Start Jarvis --------------------
+
+if jarvis_started:
+
+    speak("Starting Jarvis")
+
+    os.system("start cmd /k py -3.12 Jarvis.py")
