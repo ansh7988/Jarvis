@@ -2,7 +2,7 @@ import face_recognition
 import cv2
 import os
 import pyttsx3
-
+from datetime import datetime
 # -------------------- TTS --------------------
 
 def speak(text):
@@ -93,6 +93,17 @@ while True:
 
             if failed_attempts >= MAX_ATTEMPTS:
 
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+                filename = f"intruders/intruder_{timestamp}.jpg"
+
+                cv2.imwrite(filename, frame)
+
+                print(f"Intruder photo saved: {filename}")
+
+                speak("Warning")
+                speak("Unauthorized person detected")
+                speak("Photo captured")
                 speak("Access Denied")
 
                 cap.release()
