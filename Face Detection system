@@ -5,6 +5,14 @@ import pyttsx3
 from datetime import datetime
 # -------------------- TTS --------------------
 
+def write_log(message):
+
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    with open("login_log.txt", "a") as file:
+
+        file.write(f"[{current_time}] {message}\n")
+
 def speak(text):
     engine = pyttsx3.init()
     engine.say(text)
@@ -79,6 +87,8 @@ while True:
             speak("Welcome Anshdeep")
             speak("Face verified")
 
+            write_log("AUTHORIZED USER: Anshdeep")
+
             jarvis_started = True
 
             break
@@ -98,6 +108,8 @@ while True:
                 filename = f"intruders/intruder_{timestamp}.jpg"
 
                 cv2.imwrite(filename, frame)
+
+                write_log(f"UNAUTHORIZED USER | Photo Saved: {filename}")
 
                 print(f"Intruder photo saved: {filename}")
 
