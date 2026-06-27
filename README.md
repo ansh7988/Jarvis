@@ -1,7 +1,3 @@
-# Jarvis
-#This is code for Jarvis
-
-#Imports 
 import pyttsx3
 import os
 import speech_recognition as sr # type: ignore
@@ -15,11 +11,37 @@ import psutil
 import random
 import time
 import requests
-# put Javris passsword here
-# api key for weather api_key
+import smtplib
+import pygame
+import getpass
+from gemini_ai import ask_gemini
+from memory import remember, recall
+# import eel
+# eel.init("web")
+api_key = "waether api key"
+JARVIS_PASSWORD = "passkey"
+
+#Notes folder
 NOTES_FOLDER = "Jarvis_Notes.txt"
+EMAIL_ADDRESS= "anshdeep7988@gmail.com"
+EMAIL_PASSWORD = "puvrvpeeobgnyuto"
+
+#Status file fucntion
+
+def update_status(status):
+    with open("status.txt", "w") as file:
+        file.write(status)
+
+#Jarvis  startup sound 
+def play_startup_sound():
+    pygame.mixer.init()
+    pygame.mixer.music.load("sounds/startup.mp3")
+    pygame.mixer.music.play()
+
+
 # To make the assistant speak, you can use the following code snippet. This code initializes the text-to-speech engine and defines a function to convert text to speech.
 def speak(audio):
+    update_status("RESPONDING")
     print(f"Jarvis: {audio}")
 
     engine = pyttsx3.init()
@@ -30,13 +52,15 @@ def speak(audio):
     engine.say(audio)
     engine.runAndWait()
 
+    update_status("IDLE")
+
 # To wish the user based on the time of day, you can use the following code snippet. This code checks the current hour and greets the user accordingly.
 
 def wishMe():
     hour = datetime.datetime.now().hour
 
     if 0 <= hour < 12:
-        speak("Good Morning!")
+        speak(random.choice(morning_quotes))
 
     elif 12 <= hour < 18:
         speak("Good Afternoon!")
@@ -44,7 +68,25 @@ def wishMe():
     else:
         speak("Good Evening!")
 
+    speak("System check !")
     speak("Hello Sir....  , I am Jarvis. Please tell me how may I help you")
+ # Function for email
+def sendEmail(receiver, message):
+
+    server = smtplib.SMTP("smtp.gmail.com", 587)
+    server.starttls()
+
+    server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+
+    server.sendmail(
+        EMAIL_ADDRESS,
+        receiver,
+        message
+    )
+
+    server.quit()
+
+email_contacts = {"Anshdeep Singh": "anshdeep7988@gmail.com","dad": "anshbatra1992@gmail.com"}
 
 
 english_jokes = [
@@ -69,16 +111,45 @@ english_jokes = [
     "Parallel lines have so much in common. It's a shame they'll never meet."
 ]
 
+responses = [
+    "Always ready, sir.",
+    "At your service, sir.",
+    "Ready for your next command, sir."
+]
+
+morning_quotes = [
+    "Good morning, sir. Every expert was once a beginner. Let's build something amazing today.",
+    "Rise and shine, sir. Small consistent efforts create extraordinary results.",
+    "Good morning. Today is another opportunity to become a better version of yourself.",
+    "Wake up, sir. Your future is built by what you do today, not tomorrow.",
+    "Good morning. Stay focused, stay disciplined, and success will follow.",
+    "Remember, sir. Consistency beats talent when talent doesn't work hard.",
+    "Today is a fresh start. Let's make it productive.",
+    "Keep learning, keep building, and never stop improving.",
+    "Great things take time, sir. Every line of code you write makes you a better engineer.",
+    "Good morning, sir. Your only competition is the person you were yesterday."
+]
 
 
 contacts = {"myself": "+91 9023143111", "brother": "+91 8054143121", "mom": "+91 8054143121", "dad": "+91 8288827818"}
 
 # To take a password input from the user and grant access to Jarvis, you can use the following code snippet. This code prompts the user for a password and checks if it matches the predefined password before allowing access to the assistant.
-password = input("Enter the password to access Jarvis: ")
-if password != JARVIS_PASSWORD:
-    speak("Incorrect password. Access denied.")
-    exit()
-speak("Access granted. Welcome to Jarvis!")
+MAX_ATTEMPTS = 3
+
+for attempt in range(MAX_ATTEMPTS):
+    password = getpass.getpass("Enter the password to access Jarvis: ")
+
+    if password == JARVIS_PASSWORD:
+        speak(" Authentication Successful ! Welcome to Jarvis!")
+        break
+
+    remaining = MAX_ATTEMPTS - attempt - 1
+
+    if remaining > 0:
+        speak(f"Authentication failed. {remaining} attempts remaining.")
+    else:
+        speak("Access denied. Maximum attempts reached.")
+        exit()
 # To take voice commands from the user, you can use the following code snippet. This code listens for audio input and converts it to text using Google's speech recognition API.
 
 def takeCommand():
@@ -86,30 +157,43 @@ def takeCommand():
     r = sr.Recognizer()
 
     with sr.Microphone() as source:
-        print("Listening...")
+        update_status("LISTENING...")
+        print("Listening")
         r.pause_threshold = 2
         audio = r.listen(source)
 
     try:
+        update_status("PROCESSING")
         print("Recognizing...")
         query = r.recognize_google(audio, language='en-in')
         print(f"User said: {query}\n")
         return query
 
     except Exception as e:
+        update_status("IDLE")
         print("Say that again please...")
         return "None"
     
     
+# def start_jarvis():
+#     pass
+
 
 # To open websites, applications, and play songs on YouTube using voice commands, you can use the following code snippet. This code listens for specific commands and performs the corresponding actions.
 if __name__ == "__main__":
+    # eel.start(
+    #     "index.html",size=(1400,900),block=False)
+    # start_jarvis()
+    play_startup_sound()
+    time.sleep(1)
     speak("Initializing Jarvis")
+    time.sleep(3)
     wishMe()
 
     active = False
 
     while True:
+        # eel.sleep(0.01)
 
         query = takeCommand()
 
@@ -190,6 +274,17 @@ if __name__ == "__main__":
             speak(f"Playing {song}")
             pywhatkit.playonyt(song)
 
+        #Tell about your developer
+        elif ("who is your developer" in query or "who made you" in query or "who created you" in query or "who developed you" in query or "developer" in query):
+            speak("I was created by Anshdeep Singh Batra. He is continuously improving me with new features and capabilities.")
+
+        #How's everything going
+        elif "how are you" in query:
+            speak("All systems are operating normally, sir. I am ready to assist you with whatever you need.")
+
+        #Are u ready ?
+        elif "are you ready" in query:
+            speak(random.choice(responses))
 
         #To get the current time, you can use the following code snippet. This code listens for the command "time" and responds with the current time.
 
@@ -535,7 +630,6 @@ if __name__ == "__main__":
 
             speak(notes)
 
-
         #To open folders and files on the system, you can use the following code snippet. This code listens for the command "open folder" followed by the folder path, and opens the specified folder using the default file explorer.
         elif "open downloads" in query or "open download" in query:
 
@@ -566,4 +660,14 @@ if __name__ == "__main__":
             speak("Opening This PC")
 
             os.startfile(os.path.join(os.path.expanduser("~"), "This PC"))
-            
+
+        
+
+        else:
+            speak("Let me think...")
+            answer=ask_gemini(query)
+            speak(answer)
+
+        #To send email
+
+        
