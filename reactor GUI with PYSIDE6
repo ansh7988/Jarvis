@@ -1,0 +1,539 @@
+"""
+JARVIS-style Desktop AI Assistant GUI
+Built with PySide6
+
+Features:
+- Animated wireframe sphere "neural core" with a twinkling star layer
+  (rotating, pulsing, silver/white glow on pure black)
+- Top HUD with title + status line
+- Side panels with fake system telemetry (digital clock, stats, bars)
+- Bottom command input bar with a soft glow effect
+- Silver-and-black sci-fi theme
+
+Run:
+    pip install PySide6
+    python jarvis_gui.py
+"""
+from Jarvis import process_gui_command , startup_sequence
+import sys
+import math
+import random
+from datetime import datetime
+
+from PySide6.QtCore import Qt, QTimer, QPointF, Signal , QThread
+from PySide6.QtGui import QPainter, QPen, QColor, QFont, QBrush, QLinearGradient, QRadialGradient, QPolygonF
+from PySide6.QtWidgets import (
+    QApplication, QWidget, QMainWindow, QVBoxLayout, QHBoxLayout,
+    QLabel, QLineEdit, QPushButton, QFrame, QGraphicsDropShadowEffect
+)
+
+# ----------------------------------------------------------------------------
+# Color palette — JARVIS-style electric cyan on black
+# ----------------------------------------------------------------------------
+SILVER = QColor(0, 224, 255)
+SILVER_DIM = QColor(0, 140, 180)
+BG_DARK = QColor(0, 0, 0)
+PANEL_BG = QColor(0, 18, 22, 180)
+
+# kept as aliases so the rest of the file reads naturally
+CYAN = SILVER
+CYAN_DIM = SILVER_DIM
+CYAN_BRIGHT = QColor(180, 250, 255)
+
+
+# ----------------------------------------------------------------------------
+# Wireframe Sphere Widget — the "neural core"
+# ----------------------------------------------------------------------------
+class WireframeSphere(QWidget):
+    """Animated 'arc reactor' core widget — concentric rotating rings,
+    a segmented turbine collar, and a glowing center, rendered each frame
+    with QPainter. Electric cyan on black, JARVIS/Iron-Man style. Flares
+    brighter and spins up when listening=True."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.angle_x = 0.0
+        self.angle_y = 0.0
+        self.pulse = 0.0
+        self.setMinimumSize(260, 260)
+
+        # Small mechanical "bolt" marks placed evenly around the outer collar
+        self.num_bolts = 20
+        # Turbine wedge count for the mid ring
+        self.num_wedges = 10
+        # Fine twinkling sparks scattered in the outer glow ring, purely
+        # decorative — keeps the same lively, sparkling feel as before.
+        self.stars = []
+        num_stars = 90
+        for _ in range(num_stars):
+            ang = random.uniform(0, 2 * math.pi)
+            rad = random.uniform(0.78, 1.15)
+            self.stars.append({
+                "ang": ang,
+                "rad": rad,
+                "phase": random.uniform(0, 2 * math.pi),
+                "speed": random.uniform(1.5, 4.0),
+                "base_size": random.uniform(0.8, 2.2),
+            })
+
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.tick)
+        self.timer.start(30)
+
+        self.listening = False
+        self.t = 0.0
+
+    def tick(self):
+        # Spins continuously; spins up faster while actively listening.
+        spin_speed = 0.010 if not self.listening else 0.028
+        self.angle_y += spin_speed
+        self.angle_x += 0.0035
+        self.pulse += 0.06
+        self.t += 0.033
+        self.update()
+
+    def set_listening(self, val: bool):
+        self.listening = val
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        w, h = self.width(), self.height()
+        cx, cy = w / 2, h / 2
+        base_radius = min(w, h) * 0.36
+
+        pulse_amt = (math.sin(self.pulse) + 1) / 2  # 0..1
+        listen_boost = 1.0 if not self.listening else 1.6
+        radius = base_radius * (1.0 + (0.04 if not self.listening else 0.09) * pulse_amt)
+
+        glow_color = SILVER  # electric cyan throughout; intensity ramps on listening
+
+        # --- Outer soft halo (brighter / wider flare while listening) ---
+        halo_r = radius * (2.1 + (0.35 if self.listening else 0.0))
+        glow = QRadialGradient(cx, cy, halo_r)
+        c1 = QColor(glow_color)
+        c1.setAlpha(int(min(255, 55 * listen_boost)))
+        c2 = QColor(glow_color)
+        c2.setAlpha(0)
+        glow.setColorAt(0.0, c1)
+        glow.setColorAt(1.0, c2)
+        painter.setBrush(QBrush(glow))
+        painter.setPen(Qt.NoPen)
+        painter.drawEllipse(QPointF(cx, cy), halo_r, halo_r)
+
+        # --- Outer collar ring with evenly spaced mechanical "bolts" ---
+        collar_r = radius * 1.0
+        pen = QPen(QColor(glow_color))
+        pen.setWidthF(2.0)
+        c = QColor(glow_color)
+        c.setAlpha(150)
+        pen.setColor(c)
+        painter.setPen(pen)
+        painter.setBrush(Qt.NoBrush)
+        painter.drawEllipse(QPointF(cx, cy), collar_r, collar_r)
+
+        for i in range(self.num_bolts):
+            a = 2 * math.pi * i / self.num_bolts
+            bx = cx + math.cos(a) * collar_r
+            by = cy + math.sin(a) * collar_r
+            bolt_c = QColor(glow_color)
+            bolt_c.setAlpha(200)
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(QBrush(bolt_c))
+            painter.drawEllipse(QPointF(bx, by), 2.6, 2.6)
+
+        # --- Rotating segmented ring (thick dashes with gaps) ---
+        seg_r = radius * 0.8
+        seg_count = 16
+        gap_frac = 0.35
+        seg_pen = QPen(QColor(glow_color))
+        seg_pen.setWidthF(radius * 0.10)
+        seg_pen.setCapStyle(Qt.FlatCap)
+        sc = QColor(glow_color)
+        sc.setAlpha(int(min(255, 170 * (1.0 if not self.listening else 1.25))))
+        seg_pen.setColor(sc)
+        painter.setPen(seg_pen)
+        painter.setBrush(Qt.NoBrush)
+        span = (360.0 / seg_count) * (1.0 - gap_frac)
+        rect = (cx - seg_r, cy - seg_r, seg_r * 2, seg_r * 2)
+        rot_deg = math.degrees(self.angle_y)
+        for i in range(seg_count):
+            start_deg = (360.0 / seg_count) * i + rot_deg
+            painter.drawArc(int(rect[0]), int(rect[1]), int(rect[2]), int(rect[3]),
+                             int(start_deg * 16), int(span * 16))
+
+        # --- Turbine wedge ring (counter-rotating triangular blades) ---
+        wedge_outer = radius * 0.62
+        wedge_inner = radius * 0.30
+        counter_rot = -self.angle_y * 1.4
+        wedge_c = QColor(glow_color)
+        wedge_c.setAlpha(int(min(255, 90 + 60 * pulse_amt) * listen_boost / 1.0))
+        wedge_c.setAlpha(min(255, wedge_c.alpha()))
+        painter.setPen(Qt.NoPen)
+        for i in range(self.num_wedges):
+            a0 = 2 * math.pi * i / self.num_wedges + counter_rot
+            a1 = a0 + (2 * math.pi / self.num_wedges) * 0.55
+            p_outer = QPointF(cx + math.cos(a0) * wedge_outer, cy + math.sin(a0) * wedge_outer)
+            p_tip = QPointF(cx + math.cos((a0 + a1) / 2) * wedge_inner, cy + math.sin((a0 + a1) / 2) * wedge_inner)
+            p_outer2 = QPointF(cx + math.cos(a1) * wedge_outer, cy + math.sin(a1) * wedge_outer)
+            painter.setBrush(QBrush(wedge_c))
+            painter.drawPolygon(QPolygonF([p_outer, p_tip, p_outer2]))
+
+        # --- Sparkling motes drifting in the outer glow ring ---
+        for star in self.stars:
+            twinkle = (math.sin(self.t * star["speed"] + star["phase"]) + 1) / 2
+            a = star["ang"] + self.angle_y * 0.5
+            r = radius * star["rad"]
+            sx = cx + math.cos(a) * r
+            sy = cy + math.sin(a) * r
+            brightness = 0.35 + 0.65 * twinkle
+            alpha = int(min(255, (90 + 140 * brightness) * (1.0 if not self.listening else 1.3)))
+            size = star["base_size"] * (0.7 + 0.6 * brightness)
+            sc2 = QColor(glow_color)
+            sc2.setAlpha(alpha)
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(QBrush(sc2))
+            painter.drawEllipse(QPointF(sx, sy), size, size)
+
+        # --- Glowing core (bright white-cyan center, pulses, flares when listening) ---
+        core_r = radius * (0.24 + 0.05 * pulse_amt + (0.05 if self.listening else 0.0))
+        core = QRadialGradient(cx, cy, core_r * 2.6)
+        cc1 = QColor(CYAN_BRIGHT)
+        cc1.setAlpha(int(min(255, 220 * listen_boost / 1.2)))
+        cc_mid = QColor(glow_color)
+        cc_mid.setAlpha(120)
+        cc2 = QColor(glow_color)
+        cc2.setAlpha(0)
+        core.setColorAt(0.0, cc1)
+        core.setColorAt(0.45, cc_mid)
+        core.setColorAt(1.0, cc2)
+        painter.setBrush(QBrush(core))
+        painter.setPen(Qt.NoPen)
+        painter.drawEllipse(QPointF(cx, cy), core_r * 2.6, core_r * 2.6)
+
+        # solid bright center point
+        painter.setBrush(QBrush(QColor(CYAN_BRIGHT)))
+        painter.drawEllipse(QPointF(cx, cy), core_r * 0.55, core_r * 0.55)
+
+        painter.end()
+
+
+# ----------------------------------------------------------------------------
+# Small HUD helper widgets
+# ----------------------------------------------------------------------------
+class HudLabel(QLabel):
+    def __init__(self, text="", size=10, color=CYAN, bold=False, parent=None):
+        super().__init__(text, parent)
+        f = QFont("Consolas", size)
+        f.setBold(bold)
+        self.setFont(f)
+        self.setStyleSheet(f"color: rgba({color.red()},{color.green()},{color.blue()},230); "
+                            f"background: transparent; letter-spacing: 1px;")
+
+
+class StatBar(QWidget):
+    """A small horizontal bar readout, e.g. CPU / NET / PWR."""
+    def __init__(self, label, parent=None):
+        super().__init__(parent)
+        self.label_text = label
+        self.value = random.uniform(0.3, 0.9)
+        self.setFixedHeight(34)
+
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self._jitter)
+        self.timer.start(1200)
+
+    def _jitter(self):
+        self.value = max(0.1, min(0.97, self.value + random.uniform(-0.15, 0.15)))
+        self.update()
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        w, h = self.width(), self.height()
+
+        p.setFont(QFont("Consolas", 8))
+        p.setPen(QColor(70, 200, 225, 200))
+        p.drawText(0, 12, f"{self.label_text}")
+        p.drawText(0, 26, f"{int(self.value*100):02d}%")
+
+        bar_x = 55
+        bar_w = w - bar_x - 4
+        bar_h = 6
+        bar_y = h - 14
+
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(40, 40, 44, 160))
+        p.drawRoundedRect(bar_x, bar_y, bar_w, bar_h, 2, 2)
+
+        fill_w = int(bar_w * self.value)
+        grad = QLinearGradient(bar_x, 0, bar_x + bar_w, 0)
+        grad.setColorAt(0, QColor(0, 150, 190, 230))
+        grad.setColorAt(1, QColor(120, 240, 255, 230))
+        p.setBrush(QBrush(grad))
+        p.drawRoundedRect(bar_x, bar_y, fill_w, bar_h, 2, 2)
+        p.end()
+
+
+class DigitalClock(QLabel):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFont(QFont("Consolas", 26, QFont.Bold))
+        self.setStyleSheet("color: rgb(0,224,255); background: transparent;")
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self._refresh)
+        self.timer.start(1000)
+        self._refresh()
+
+    def _refresh(self):
+        now = datetime.now()
+        self.setText(now.strftime("%H:%M:%S"))
+
+
+# ----------------------------------------------------------------------------
+# Main Window
+# ----------------------------------------------------------------------------
+class CommandWorker(QThread):
+    finished = Signal(bool)
+
+    def __init__(self, command):
+        super().__init__()
+        self.command = command
+
+    def run(self):
+        from Jarvis import process_gui_command
+        result = process_gui_command(self.command)
+        self.finished.emit(result)
+
+class JarvisWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("J.A.R.V.I.S")
+        self.resize(1180, 720)
+        self.setStyleSheet(f"background-color: rgb({BG_DARK.red()},{BG_DARK.green()},{BG_DARK.blue()});")
+
+        central = QWidget()
+        self.setCentralWidget(central)
+        root = QVBoxLayout(central)
+        root.setContentsMargins(24, 18, 24, 18)
+        root.setSpacing(10)
+
+        # ---------------- Top bar ----------------
+        top_bar = QHBoxLayout()
+        title = HudLabel("J.A.R.V.I.S", size=20, color=CYAN, bold=True)
+        top_bar.addWidget(title)
+        top_bar.addStretch()
+        self.status_label = HudLabel("● SYSTEMS ONLINE", size=11, color=QColor(200, 230, 200), bold=True)
+        top_bar.addWidget(self.status_label)
+        root.addLayout(top_bar)
+
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        line.setStyleSheet("background-color: rgba(0,180,210,70); max-height:1px;")
+        root.addWidget(line)
+
+        # ---------------- Middle area: left stats | sphere | right stats ----------------
+        middle = QHBoxLayout()
+        middle.setSpacing(16)
+
+        # Left panel
+        left_panel = QVBoxLayout()
+        left_panel.setSpacing(10)
+        self.clock = DigitalClock()
+        left_panel.addWidget(self.clock)
+        date_lbl = HudLabel(datetime.now().strftime("%a, %d %b %Y").upper(), size=10, color=CYAN_DIM)
+        left_panel.addWidget(date_lbl)
+        left_panel.addSpacing(10)
+        for name in ["CPU LOAD", "MEMORY", "NETWORK"]:
+            left_panel.addWidget(StatBar(name))
+        left_panel.addStretch()
+        left_box = QFrame()
+        left_box.setLayout(left_panel)
+        left_box.setFixedWidth(220)
+        middle.addWidget(left_box)
+
+        # Center sphere
+        self.sphere = WireframeSphere()
+        middle.addWidget(self.sphere, stretch=1)
+
+        # Right panel
+        right_panel = QVBoxLayout()
+        right_panel.setSpacing(10)
+        right_panel.addWidget(HudLabel("ACTIVE PROCESSES", size=10, color=CYAN_DIM, bold=True))
+        self.proc_labels = []
+        for proc in ["voice_engine.py", "vision_core.dll", "nlp_router", "task_manager", "web_query"]:
+            lbl = HudLabel(f"▸ {proc}", size=9, color=CYAN)
+            right_panel.addWidget(lbl)
+        right_panel.addSpacing(10)
+        for name in ["POWER", "SIGNAL"]:
+            right_panel.addWidget(StatBar(name))
+        right_panel.addStretch()
+        right_box = QFrame()
+        right_box.setLayout(right_panel)
+        right_box.setFixedWidth(220)
+        middle.addWidget(right_box)
+
+        root.addLayout(middle, stretch=1)
+
+        # ---------------- Response / log area ----------------
+        self.response_label = QLabel("Hello. I am online and ready to assist.")
+        self.response_label.setFont(QFont("Consolas", 12))
+        self.response_label.setStyleSheet("color: rgba(150,235,255,230); background: transparent;")
+        self.response_label.setWordWrap(True)
+        self.response_label.setAlignment(Qt.AlignCenter)
+        self.response_label.setFixedHeight(40)
+        root.addWidget(self.response_label)
+
+        # ---------------- Bottom input bar ----------------
+        input_row = QHBoxLayout()
+        input_row.setSpacing(10)
+
+        self.input_field = QLineEdit()
+        self.input_field.setPlaceholderText("Type a command, sir...")
+        self.input_field.setFont(QFont("Consolas", 12))
+        self.input_field.setFixedHeight(44)
+        self.input_field.setStyleSheet("""
+            QLineEdit {
+                background-color: rgba(0, 14, 17, 220);
+                border: 1px solid rgba(0, 200, 230, 140);
+                border-radius: 8px;
+                padding: 0 14px;
+                color: rgb(180, 245, 255);
+            }
+            QLineEdit:focus {
+                border: 1px solid rgba(120, 240, 255, 220);
+            }
+        """)
+        glow = QGraphicsDropShadowEffect()
+        glow.setColor(QColor(0, 220, 255, 170))
+        glow.setBlurRadius(25)
+        glow.setOffset(0, 0)
+        self.input_field.setGraphicsEffect(glow)
+        self.input_field.returnPressed.connect(self.handle_command)
+
+        self.mic_btn = QPushButton("🎙")
+        self.mic_btn.setFixedSize(44, 44)
+        self.mic_btn.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(0, 20, 24, 230);
+                border: 1px solid rgba(0, 200, 230, 140);
+                border-radius: 22px;
+                font-size: 16px;
+                color: rgb(180,245,255);
+            }
+            QPushButton:hover {
+                background-color: rgba(50, 50, 54, 230);
+            }
+        """)
+        self.mic_btn.clicked.connect(self.voice_command)
+        self.voice_mode = False
+        send_btn = QPushButton("SEND")
+        send_btn.setFixedSize(80, 44)
+        send_btn.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(0, 224, 255, 230);
+                border-radius: 8px;
+                font-weight: bold;
+                color: rgb(0,10,12);
+            }
+            QPushButton:hover {
+                background-color: rgba(140, 245, 255, 250);
+            }
+        """)
+        send_btn.clicked.connect(self.handle_command)
+
+        input_row.addWidget(self.input_field, stretch=1)
+        input_row.addWidget(self.mic_btn)
+        input_row.addWidget(send_btn)
+        root.addLayout(input_row)
+
+    # --------------------------------------------------------------------
+    def toggle_listen(self):
+        listening = not self.sphere.listening
+        self.sphere.set_listening(listening)
+        if listening:
+            self.status_label.setText("● LISTENING...")
+            self.status_label.setStyleSheet("color: rgb(180,250,255); background: transparent;")
+        else:
+            self.status_label.setText("● SYSTEMS ONLINE")
+            self.status_label.setStyleSheet("color: rgb(0,224,255); background: transparent;")
+    
+
+    def voice_command(self):
+        print("STEP 1")
+
+        from Jarvis import takeCommand
+
+        print("STEP 2")
+
+        self.toggle_listen()
+
+        print("STEP 3")
+
+        text = takeCommand()
+
+        print("STEP 4")
+
+        self.toggle_listen()
+
+        print("STEP 5")
+
+        if text == "None":
+            self.response_label.setText("Sorry, I didn't catch that.")
+            return
+
+        self.input_field.setText(text)
+
+        print("STEP 6")
+
+        self.handle_command()
+
+        print("STEP 7")
+
+    def handle_command(self):
+        text = self.input_field.text().strip()
+
+        if not text:
+            return
+
+        self.response_label.setText(f'You said: "{text}" — processing...')
+        self.input_field.clear()
+
+        self.worker = CommandWorker(text)
+        self.worker.finished.connect(self.command_finished)
+        self.worker.start()
+
+    def command_finished(self, running):
+        if not running:
+            QApplication.quit()
+
+
+def keyPressEvent(self, event):
+    if event.key() == Qt.Key_Escape:
+        self.showNormal()
+    else:
+        super().keyPressEvent(event)
+
+def main():
+    import subprocess
+    import sys
+
+    app = QApplication(sys.argv)
+    app.setStyle("Fusion")
+
+    window = JarvisWindow()
+
+    from Jarvis import set_gui
+    set_gui(window)
+
+    window.showMaximized()
+
+    # Start Jarvis AFTER the GUI appears
+    QTimer.singleShot(500, startup_sequence)
+
+    sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()
