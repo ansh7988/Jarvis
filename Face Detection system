@@ -1,7 +1,9 @@
+import getpass
 import face_recognition
 import cv2
 import os
 import pyttsx3
+import webbrowser
 from datetime import datetime
 # -------------------- TTS --------------------
 
@@ -87,6 +89,10 @@ while True:
             speak("Welcome Anshdeep")
             speak("Face verified")
 
+            # gui_path = os.path.abspath("Jarvis_UI/index.html")
+            # webbrowser.open_new_tab(f"file:///{gui_path}")
+            import time
+            time.sleep(2)
             write_log("AUTHORIZED USER: Anshdeep")
 
             jarvis_started = True
@@ -158,6 +164,23 @@ cv2.destroyAllWindows()
 
 if jarvis_started:
 
-    speak("Starting Jarvis")
+    MAX_ATTEMPTS = 3
 
-    os.system("start cmd /k py -3.12 Jarvis.py")
+    for attempt in range(MAX_ATTEMPTS):
+        password = getpass.getpass("Enter the password to access Jarvis: ")
+        if password == "pass_key":
+            speak("Authentication Successful! Welcome to Jarvis!")
+            speak("Starting Jarvis")
+            import subprocess
+            import sys
+
+            subprocess.Popen(
+    ["py","-3.12", "JGUI.py"])
+            exit()
+
+        remaining = MAX_ATTEMPTS - attempt - 1
+
+        if remaining > 0:
+            speak(f"Authentication failed. {remaining} attempts remaining.")
+        else:
+            speak("Access denied. Maximum attempts reached.")
