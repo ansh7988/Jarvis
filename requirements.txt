@@ -24,3 +24,5 @@ datetime
 webbrowser
 os
 asyncio
+getpass
+cv2
