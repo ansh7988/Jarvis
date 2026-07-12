@@ -1,3 +1,5 @@
+from unittest import result
+
 import speech_recognition as sr # type: ignore
 import os
 import datetime
@@ -23,13 +25,13 @@ from vision import analyze_screen
 
 # import eel
 # eel.init("web")
-api_key = "waether_api_key"
-JARVIS_PASSWORD = "key_pass"
+api_key = "weathe_key"
+JARVIS_PASSWORD = "pass_key"
 
 #Notes folder
 NOTES_FOLDER = "Jarvis_Notes.txt"
 EMAIL_ADDRESS= "anshdeep7988@gmail.com"
-EMAIL_PASSWORD = "email_pass_smtlib"
+EMAIL_PASSWORD = "email_passkey"
 
 gui_window = None
 active = False
@@ -54,6 +56,10 @@ def play_startup_sound():
     pygame.mixer.music.load("sounds/startup.mp3")
     pygame.mixer.music.play()
 
+def play_scan_sound():
+    pygame.mixer.init()
+    pygame.mixer.music.load("sounds/scan.mp3")
+    pygame.mixer.music.play()
 
 # To make the assistant speak, you can use the following code snippet. This code initializes the text-to-speech engine and defines a function to convert text to speech.
 
@@ -190,15 +196,87 @@ def process_gui_command(query):
     query = query.lower()
     print(f"Processing command: {query}")
 
-    if "analyze my screen" in query or "analyse my screen" in query or "analyze screen" in query or "analyse screen" in query or "what's on my screen" in query or "explain my screen" in query or "explain screen" in query:
+    if "solve this error" in query or "fix this error" in query:
 
+        if gui_window:
+            gui_window.response_label.setText("🐞 DETECTING ERROR...")
+
+        speak("Certainly sir. Analyzing the error on your screen.")
+
+        play_scan_sound()
+
+        error_prompt = """
+    You are Jarvis.
+
+    Analyze the screenshot.
+
+    Your task is ONLY to identify programming errors or compiler/runtime errors.
+
+    If an error is present:
+    1. Explain what the error means.
+    2. Explain why it happened.
+    3. Give the exact steps to fix it.
+
+    If no error exists, simply reply:
+
+    'I don't detect any programming error on the screen, sir.'
+
+    Keep the answer under 120 words.
+    """
+
+        result = analyze_screen(error_prompt)
+
+        print("\n========== GEMINI RESPONSE ==========\n")
+        print(result)
+        print("\n=====================================\n")
+        speak(result)
+
+        if gui_window:
+            gui_window.response_label.setText("✓ ERROR ANALYZED")
+
+        return True
+
+
+    elif (
+        "analyze my screen" in query
+        or "analyse my screen" in query
+        or "analyze screen" in query
+        or "analyse screen" in query
+        or "what's on my screen" in query
+        or "explain my screen" in query
+        or "explain screen" in query
+    ):
+        if gui_window:
+            gui_window.response_label.setText("🔍 PREPARING SCREEN...")
         speak("Certainly sir. You have five seconds to prepare your screen.")
 
-        result = analyze_screen()
+        play_scan_sound()      # 🔊 Add this line
+        if gui_window:
+            gui_window.response_label.setText("🧠 ANALYZING...")
+        screen_prompt = """
+    You are Jarvis.
 
+    Analyze everything visible on the screen.
+
+    Describe the important information naturally.
+
+    Keep the answer under 120 words.
+    """
+
+        try:
+            result = analyze_screen(screen_prompt)
+        except Exception as e:
+            print(e)
+            speak("Sorry sir, the Gemini API limit has been reached. Please try again later.")
+            return True
         print(result)
 
         speak(result)
+        if gui_window:
+            gui_window.response_label.setText("READY")
+
+        if gui_window:
+            gui_window.response_label.setText("✓ SCREEN ANALYZED")
 
         return True
 
@@ -247,7 +325,9 @@ def process_gui_command(query):
 
     elif "open linkedin" in query:
         speak("Opening LinkedIn")
-        webbrowser.open("https://www.linkedin.com/")
+        print("Opening LinkedIn...")
+        webbrowser.open("https://linkedin.com/")
+    
 
     elif "open github" in query:
         speak("Opening GitHub")
@@ -693,17 +773,6 @@ def process_gui_command(query):
         else:
             speak("Contact not found")
 
-    #Screen analysis using Gemini API
-    elif "analyze screen" in query or "what's on my screen" in query or "analyze my screen" in query:
-
-        speak("Certainly sir. You have five seconds to prepare your screen.")
-
-        result = analyze_screen()
-
-        speak(result)
-
-        if gui:
-            gui.response_label.setText(result)
 
     #Gemini API
     else:
