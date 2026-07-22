@@ -18,13 +18,13 @@ from gemini_ai import ask_gemini
 from memory import remember, recall
 # import eel
 # eel.init("web")
-api_key = "b12a6ef2b4862eef2da6cb71bb9ecdd9"
-JARVIS_PASSWORD = "crazy coder"
+api_key = "api"
+JARVIS_PASSWORD = "PASSWORD"
 
 #Notes folder
 NOTES_FOLDER = "Jarvis_Notes.txt"
 EMAIL_ADDRESS= "anshdeep7988@gmail.com"
-EMAIL_PASSWORD = "puvrvpeeobgnyuto"
+EMAIL_PASSWORD = "pass"
 
 #Status file fucntion
 
