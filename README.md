@@ -18,6 +18,7 @@ An advanced AI-powered desktop voice assistant inspired by Marvel's J.A.R.V.I.S.
 ## 🖥️ Futuristic GUI
 - Modern J.A.R.V.I.S.-style interface.
 - Animated central holographic sphere.
+- Floating Button
 - Live digital clock and date.
 - CPU usage monitor.
 - RAM usage monitor.
