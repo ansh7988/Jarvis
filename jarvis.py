@@ -1,5 +1,4 @@
 from unittest import result
-
 import speech_recognition as sr # type: ignore
 import os
 import datetime
@@ -18,20 +17,30 @@ import getpass
 import threading
 from gemini_ai import ask_gemini
 from memory import remember, recall
-from voice import speak, stop_speaking, is_speaking
+from voice import speak as _voice_speak, stop_speaking, is_speaking
 from vision import analyze_screen
+from transcript_emitter import emit_speech
+
+
+def speak(audio):
+    """Wraps voice.speak() so every response Jarvis says is also pushed,
+    verbatim, to the GUI transcript panel in real time. This never
+    generates or alters speech - voice.py still owns all TTS logic - it
+    only mirrors the exact same text that's about to be spoken."""
+    emit_speech(audio)
+    _voice_speak(audio)
 
 
 
 # import eel
 # eel.init("web")
-api_key = "b12a6ef2b4862eef2da6cb71bb9ecdd9"
-JARVIS_PASSWORD = "crazy coder"
+api_key = "API_KEY"
+JARVIS_PASSWORD = "PASSWORD"
 
 #Notes folder
 NOTES_FOLDER = "Jarvis_Notes.txt"
 EMAIL_ADDRESS= "anshdeep7988@gmail.com"
-EMAIL_PASSWORD = "puvrvpeeobgnyuto"
+EMAIL_PASSWORD = "email"
 
 gui_window = None
 active = False
@@ -96,7 +105,7 @@ def sendEmail(receiver, message):
 
     server.quit()
 
-email_contacts = {"Anshdeep Singh": "anshdeep7988@gmail.com","dad": "anshbatra1992@gmail.com"}
+email_contacts = {"anshdeep Singh": "anshdeep7988@gmail.com","dad": "anshbatra1992@gmail.com"}
 
 
 english_jokes = [
