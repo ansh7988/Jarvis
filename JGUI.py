@@ -32,6 +32,9 @@ from PySide6.QtWidgets import (
     QLabel, QLineEdit, QPushButton, QFrame, QGraphicsDropShadowEffect
 )
 
+from transcript_panel import TranscriptPanel
+from floating_button import FloatingJarvisButton
+
 # ----------------------------------------------------------------------------
 # Color palette — silver / white on black
 # ----------------------------------------------------------------------------
@@ -612,8 +615,26 @@ class JarvisWindow(QMainWindow):
         self.mic_btn.clicked.connect(self.voice_command)
         self.voice_mode = False
 
+        self.transcript_btn = QPushButton("\U0001F4AC")
+        self.transcript_btn.setFixedSize(44, 44)
+        self.transcript_btn.setToolTip("Show transcript")
+        self.transcript_btn.setStyleSheet('''
+            QPushButton {
+                background-color: rgba(10, 30, 34, 230);
+                border: 1px solid rgba(0, 200, 220, 140);
+                border-radius: 22px;
+                font-size: 16px;
+                color: rgb(170, 240, 255);
+            }
+            QPushButton:hover {
+                background-color: rgba(0, 60, 70, 230);
+            }
+        ''')
+        self.transcript_btn.clicked.connect(self.toggle_transcript)
+
         input_row.addWidget(self.input_field, stretch=1)
         input_row.addWidget(self.mic_btn)
+        input_row.addWidget(self.transcript_btn)
         self.voice_label = HudLabel("READY", size=12, color=CYAN, bold=True)
 
         input_row.addStretch()
@@ -642,6 +663,45 @@ class JarvisWindow(QMainWindow):
         self.stop_listener = StopWordListener()
         self.stop_listener.stopped.connect(self.on_jarvis_stopped)
         self.stop_listener.start()
+
+        # ---------------- Transcript panel ----------------
+        # Independent floating panel; mirrors every speak() call in real
+        # time via transcript_emitter, and never generates its own text.
+        self.transcript_panel = TranscriptPanel()
+        self.transcript_panel.attach_to(self)
+
+        # ---------------- Floating always-on-top button ----------------
+        # A separate top-level widget so it keeps floating above other
+        # apps (Chrome, VS Code, Explorer, ...) even when this window is
+        # behind them. Closed explicitly on exit - see closeEvent().
+        self.floating_button = FloatingJarvisButton(self)
+        self.floating_button.show()
+
+    # --------------------------------------------------------------------
+    def toggle_transcript(self):
+        self.transcript_panel.toggle()
+
+    def moveEvent(self, event):
+        super().moveEvent(event)
+        if getattr(self, "transcript_panel", None) is not None and self.transcript_panel.isVisible():
+            self.transcript_panel.reposition()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if getattr(self, "transcript_panel", None) is not None and self.transcript_panel.isVisible():
+            self.transcript_panel.reposition()
+
+    def closeEvent(self, event):
+        # Make sure the floating button and transcript panel never outlive
+        # the main window - otherwise Qt won't auto-quit on close since
+        # they're independent top-level widgets.
+        if getattr(self, "floating_button", None) is not None:
+            self.floating_button.close()
+        if getattr(self, "transcript_panel", None) is not None:
+            self.transcript_panel.close()
+        self._stop_background_threads()
+        super().closeEvent(event)
+
     # --------------------------------------------------------------------
     def toggle_listen(self):
         listening = not self.sphere.listening
@@ -755,14 +815,21 @@ class JarvisWindow(QMainWindow):
     def on_jarvis_stopped(self):
         self.response_label.setText("Stopped. Ready for your next command, sir.")
 
+    def _stop_background_threads(self):
+        if self.voice_worker is not None:
+            self.voice_worker.stop()
+            self.voice_worker.wait(2000)
+        if self.stop_listener is not None:
+            self.stop_listener.stop()
+            self.stop_listener.wait(2000)
+
     def command_finished(self, running):
         if not running:
-            if self.voice_worker is not None:
-                self.voice_worker.stop()
-                self.voice_worker.wait(2000)
-            if self.stop_listener is not None:
-                self.stop_listener.stop()
-                self.stop_listener.wait(2000)
+            self._stop_background_threads()
+            if getattr(self, "floating_button", None) is not None:
+                self.floating_button.close()
+            if getattr(self, "transcript_panel", None) is not None:
+                self.transcript_panel.close()
             QApplication.quit()
 
     def keyPressEvent(self, event):
@@ -784,6 +851,17 @@ def main():
     set_gui(window)
 
     window.showMaximized()
+
+    # Safety net: however the app ends up quitting, make sure the floating
+    # button and transcript panel (independent top-level widgets) don't
+    # linger on screen after Jarvis is gone.
+    def _cleanup_floating_widgets():
+        if getattr(window, "floating_button", None) is not None:
+            window.floating_button.close()
+        if getattr(window, "transcript_panel", None) is not None:
+            window.transcript_panel.close()
+
+    app.aboutToQuit.connect(_cleanup_floating_widgets)
 
     # Start Jarvis AFTER the GUI appears
     QTimer.singleShot(500, startup_sequence)
