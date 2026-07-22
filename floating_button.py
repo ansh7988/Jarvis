@@ -1,28 +1,41 @@
 """
 floating_button.py
 
-A small, always-on-top, draggable "AI orb" button - styled like a glowing
-arc-reactor / neural core, similar in spirit to Windows Copilot's floating
-button or the Android Edge Panel handle. It is a completely independent
-top-level widget, so it keeps floating above Chrome, VS Code, File
-Explorer, etc. even while the main JarvisWindow is behind those apps.
+A small, always-on-top, draggable "arc reactor" orb - similar in spirit to
+Windows Copilot's floating button or the Android Edge Panel handle. It is a
+completely independent top-level widget, so it keeps floating above Chrome,
+VS Code, File Explorer, etc. even while the main JarvisWindow is behind
+those apps.
 
-- Single click  -> pop open a small quick-action menu (Mic / Transcript)
-                   right next to the orb, WITHOUT opening the full GUI.
-- Single click again (while the menu is open) -> close the quick menu.
-- Double click  -> open/bring forward the full Jarvis window (this is the
-                   "click twice" gesture to get the complete GUI).
+Interaction model:
+- Single click  -> pop open a small "quick actions" menu right next to the
+                    orb, with two round buttons: Mic and Transcript. Neither
+                    of these opens the full JarvisWindow - they call
+                    straight into JarvisWindow.voice_command() /
+                    .toggle_transcript(), the same way the full GUI's own
+                    mic / transcript buttons do.
+- Double click  -> open (or bring forward) the full Jarvis window. If the
+                    window is already visible and not minimized, this hides
+                    it again - a normal toggle.
 - Drag          -> reposition anywhere on screen (snaps back into view if
-                    dragged off-screen).
-- close()       -> called by JGUI.py when Jarvis exits, so the button (and
-                    its quick menu) never lingers after the app is gone.
+                    dragged off-screen). Any in-progress quick actions menu
+                    is dismissed as soon as a drag starts.
+- close()       -> called by JGUI.py when Jarvis exits, so neither the orb
+                    nor its quick actions menu ever lingers after the app
+                    is gone.
 
-This widget deliberately has no timers, no animations loop, and no heavy
-painting, so it costs effectively nothing while idle.
+Single vs. double click is disambiguated manually with a short timer (the
+length of QApplication.doubleClickInterval()) rather than relying on Qt's
+mouseDoubleClickEvent, because a genuine double click still delivers a
+single mouseReleaseEvent first - we need to hold that first click briefly
+to see whether a second one follows before deciding which action to take.
+
+This widget deliberately has no animation loop and no heavy painting, so it
+costs effectively nothing while idle.
 """
 
-from PySide6.QtCore import Qt, QPoint
-from PySide6.QtGui import QPainter, QColor, QRadialGradient, QPen, QCursor
+from PySide6.QtCore import Qt, QPoint, QPointF, QRectF, QTimer
+from PySide6.QtGui import QPainter, QColor, QPen, QRadialGradient
 from PySide6.QtWidgets import (
     QWidget, QApplication, QPushButton, QVBoxLayout, QGraphicsDropShadowEffect
 )
@@ -31,108 +44,131 @@ SIZE = 56
 MARGIN_FROM_EDGE = 18
 DRAG_THRESHOLD = 4  # pixels of movement before a press counts as a drag, not a click
 
-MENU_BTN_SIZE = 42
-MENU_WIDTH = 60
+ACTION_SIZE = 44
+ACTION_GAP = 10
 
 
-class OrbQuickMenu(QWidget):
-    """Small floating popup with two quick-action buttons (mic + transcript)
-    that appears next to the orb on a single click. It never touches the
-    main JarvisWindow's layout - it only calls back into it."""
+class QuickActionsMenu(QWidget):
+    """Small floating popup with Mic / Transcript buttons, shown next to the
+    orb on a single click. Talks directly to JarvisWindow - it never opens
+    or needs the full GUI to be visible."""
 
-    def __init__(self, mic_callback, transcript_callback, parent=None):
-        super().__init__(parent, Qt.Tool | Qt.FramelessWindowHint)
+    def __init__(self, main_window):
+        super().__init__(None, Qt.Tool | Qt.FramelessWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
-        self.setFixedWidth(MENU_WIDTH)
+        self._main_window = main_window
 
-        card = QWidget(self)
-        card.setObjectName("orbMenuCard")
-        card.setStyleSheet("""
-            #orbMenuCard {
-                background-color: rgba(10, 12, 14, 235);
-                border: 1px solid rgba(0, 200, 220, 130);
-                border-radius: 16px;
-            }
-        """)
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 0)
-        outer.addWidget(card)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(ACTION_GAP)
 
-        layout = QVBoxLayout(card)
-        layout.setContentsMargins(8, 10, 8, 10)
-        layout.setSpacing(10)
+        self.mic_btn = self._make_action_button("\U0001F399", "Mic")
+        self.transcript_btn = self._make_action_button("\U0001F4AC", "Transcript")
+        self.cancel_btn = self._make_action_button(
+            "\u2715", "Stop Jarvis", danger=True
+        )
 
-        shadow = QGraphicsDropShadowEffect()
-        shadow.setColor(QColor(0, 220, 255, 90))
-        shadow.setBlurRadius(24)
-        shadow.setOffset(0, 0)
-        card.setGraphicsEffect(shadow)
-
-        btn_style = """
-            QPushButton {
-                background-color: rgba(10, 30, 34, 230);
-                border: 1px solid rgba(0, 200, 220, 140);
-                border-radius: %dpx;
-                font-size: 16px;
-                color: rgb(170, 240, 255);
-            }
-            QPushButton:hover {
-                background-color: rgba(0, 60, 70, 230);
-            }
-        """ % (MENU_BTN_SIZE // 2)
-
-        self.mic_btn = QPushButton("\U0001F399")  # microphone emoji
-        self.mic_btn.setFixedSize(MENU_BTN_SIZE, MENU_BTN_SIZE)
-        self.mic_btn.setCursor(Qt.PointingHandCursor)
-        self.mic_btn.setToolTip("Toggle mic")
-        self.mic_btn.setStyleSheet(btn_style)
         self.mic_btn.clicked.connect(self._on_mic)
-
-        self.transcript_btn = QPushButton("\U0001F4AC")  # speech balloon emoji
-        self.transcript_btn.setFixedSize(MENU_BTN_SIZE, MENU_BTN_SIZE)
-        self.transcript_btn.setCursor(Qt.PointingHandCursor)
-        self.transcript_btn.setToolTip("Toggle transcript")
-        self.transcript_btn.setStyleSheet(btn_style)
         self.transcript_btn.clicked.connect(self._on_transcript)
+        self.cancel_btn.clicked.connect(self._on_cancel)
 
         layout.addWidget(self.mic_btn)
         layout.addWidget(self.transcript_btn)
-        self.adjustSize()
+        layout.addWidget(self.cancel_btn)
 
-        self._mic_callback = mic_callback
-        self._transcript_callback = transcript_callback
+    def _make_action_button(self, glyph, tooltip, danger=False):
+        btn = QPushButton(glyph)
+        btn.setFixedSize(ACTION_SIZE, ACTION_SIZE)
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.setToolTip(tooltip)
 
+        if danger:
+            # Red-tinted variant for the stop/cancel button, so it reads as
+            # distinct and a little "careful" compared to Mic/Transcript.
+            btn.setStyleSheet("""
+                QPushButton {
+                    background-color: rgba(34, 12, 14, 235);
+                    border: 1px solid rgba(230, 70, 80, 170);
+                    border-radius: %dpx;
+                    font-size: 16px;
+                    color: rgb(255, 150, 150);
+                }
+                QPushButton:hover {
+                    background-color: rgba(92, 20, 24, 235);
+                    border: 1px solid rgba(255, 110, 110, 220);
+                }
+            """ % (ACTION_SIZE // 2))
+            glow_color = QColor(255, 70, 70, 120)
+        else:
+            btn.setStyleSheet("""
+                QPushButton {
+                    background-color: rgba(10, 30, 34, 235);
+                    border: 1px solid rgba(0, 210, 230, 160);
+                    border-radius: %dpx;
+                    font-size: 17px;
+                    color: rgb(170, 240, 255);
+                }
+                QPushButton:hover {
+                    background-color: rgba(0, 80, 92, 235);
+                    border: 1px solid rgba(120, 240, 255, 220);
+                }
+            """ % (ACTION_SIZE // 2))
+            glow_color = QColor(0, 220, 255, 110)
+
+        glow = QGraphicsDropShadowEffect()
+        glow.setColor(glow_color)
+        glow.setBlurRadius(20)
+        glow.setOffset(0, 0)
+        btn.setGraphicsEffect(glow)
+        return btn
+
+    # ------------------------------------------------------------------
     def _on_mic(self):
-        if self._mic_callback is not None:
-            self._mic_callback()
         self.hide()
+        if self._main_window is not None and hasattr(self._main_window, "voice_command"):
+            self._main_window.voice_command()
 
     def _on_transcript(self):
-        if self._transcript_callback is not None:
-            self._transcript_callback()
         self.hide()
+        if self._main_window is not None and hasattr(self._main_window, "toggle_transcript"):
+            self._main_window.toggle_transcript()
 
-    def position_near(self, orb_geometry):
-        """Place the menu just to the left of the orb (or to the right if
-        there isn't room), vertically centered on it, and keep it fully
-        on-screen."""
-        screen = QApplication.screenAt(orb_geometry.center()) or QApplication.primaryScreen()
+    def _on_cancel(self):
+        """Stop the whole program - not just close this popup. Reuses
+        JarvisWindow.command_finished(False), the same choke point voice
+        commands like "exit" already use: it stops the background threads,
+        closes the transcript panel and this orb, then quits the app. Falls
+        back to a plain QApplication.quit() if that hook isn't there."""
+        self.hide()
+        if self._main_window is not None and hasattr(self._main_window, "command_finished"):
+            self._main_window.command_finished(False)
+        else:
+            app = QApplication.instance()
+            if app is not None:
+                app.quit()
+
+    # ------------------------------------------------------------------
+    def reposition(self, anchor_rect):
+        """anchor_rect: QRect (global coords) of the orb button this menu
+        is attached to. Centers under/above the orb, flipping to whichever
+        side actually has room on the current screen."""
+        self.adjustSize()
+        screen = QApplication.screenAt(anchor_rect.center()) or QApplication.primaryScreen()
         avail = screen.availableGeometry() if screen else None
 
-        self.adjustSize()
-        menu_h = self.sizeHint().height()
-        menu_w = self.sizeHint().width()
-
-        x = orb_geometry.left() - menu_w - 10
-        if avail is not None and x < avail.left():
-            x = orb_geometry.right() + 10
-
-        y = orb_geometry.center().y() - menu_h // 2
+        x = anchor_rect.x() + (anchor_rect.width() - self.width()) // 2
+        # Prefer opening upward (above the orb); flip below if no room.
+        y = anchor_rect.y() - self.height() - ACTION_GAP
         if avail is not None:
-            y = min(max(y, avail.top()), avail.bottom() - menu_h)
-
+            if y < avail.top():
+                y = anchor_rect.bottom() + ACTION_GAP
+            x = min(max(x, avail.left()), avail.right() - self.width())
         self.move(x, y)
+
+    def close(self):
+        self.hide()
+        return super().close()
 
 
 class FloatingJarvisButton(QWidget):
@@ -151,18 +187,15 @@ class FloatingJarvisButton(QWidget):
         self._dragging = False
         self._press_pos = QPoint()
 
-        self._menu = OrbQuickMenu(self._handle_mic, self._handle_transcript)
+        self._quick_actions = QuickActionsMenu(main_window)
+
+        # Manual single/double click disambiguation - see module docstring.
+        self._pending_clicks = 0
+        self._click_timer = QTimer(self)
+        self._click_timer.setSingleShot(True)
+        self._click_timer.timeout.connect(self._handle_single_click)
 
         self._dock_to_right_edge()
-
-    # ------------------------------------------------------------------
-    def _handle_mic(self):
-        if self._main_window is not None:
-            self._main_window.voice_command()
-
-    def _handle_transcript(self):
-        if self._main_window is not None:
-            self._main_window.toggle_transcript()
 
     # ------------------------------------------------------------------
     def _dock_to_right_edge(self):
@@ -186,86 +219,59 @@ class FloatingJarvisButton(QWidget):
             self.move(x, y)
 
     # ------------------------------------------------------------------
-    def toggle_menu(self):
-        if self._menu.isVisible():
-            self._menu.hide()
-        else:
-            self._menu.position_near(self.geometry())
-            self._menu.show()
-            self._menu.raise_()
-
-    def hide_menu(self):
-        if self._menu is not None:
-            self._menu.hide()
-
-    # ------------------------------------------------------------------
     def paintEvent(self, event):
-        """Paint a glowing cyan AI-orb / arc-reactor style icon."""
+        """Paints a small glowing "arc reactor" orb - a dark housing, a
+        segmented cyan turbine ring, and a bright core - instead of plain
+        text, so the button reads as an AI/HUD icon at a glance."""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
         cx, cy = SIZE / 2, SIZE / 2
-        outer_radius = SIZE / 2 - 3
+        outer_r = SIZE / 2 - 3
 
-        # --- Outer ambient glow ---
-        glow = QRadialGradient(cx, cy, outer_radius * 1.7)
+        # ---- Ambient outer glow ----
+        glow = QRadialGradient(cx, cy, outer_r * 1.8)
         glow.setColorAt(0.0, QColor(0, 220, 255, 100))
         glow.setColorAt(1.0, QColor(0, 220, 255, 0))
         painter.setPen(Qt.NoPen)
         painter.setBrush(glow)
         painter.drawEllipse(self.rect())
 
-        # --- Outer housing ring (dark metal casing, like a reactor shell) ---
-        housing_radius = outer_radius
-        housing = QRadialGradient(cx, cy, housing_radius)
-        housing.setColorAt(0.0, QColor(26, 34, 38, 235))
-        housing.setColorAt(0.85, QColor(14, 20, 23, 235))
-        housing.setColorAt(1.0, QColor(8, 12, 14, 235))
+        # ---- Dark housing ----
+        housing = QRadialGradient(cx, cy, outer_r)
+        housing.setColorAt(0.0, QColor(20, 30, 34, 240))
+        housing.setColorAt(1.0, QColor(6, 10, 12, 240))
         painter.setBrush(housing)
-        painter.setPen(QPen(QColor(0, 220, 255, 160), 1.4))
-        painter.drawEllipse(
-            int(cx - housing_radius), int(cy - housing_radius),
-            int(housing_radius * 2), int(housing_radius * 2)
-        )
+        painter.setPen(QPen(QColor(0, 220, 255, 150), 1.5))
+        painter.drawEllipse(QPointF(cx, cy), outer_r, outer_r)
 
-        # --- Radial "teeth" segments around the ring, arc-reactor style ---
-        painter.save()
-        painter.translate(cx, cy)
-        teeth = 10
-        tooth_len = housing_radius * 0.32
-        tooth_r_outer = housing_radius * 0.92
-        for i in range(teeth):
-            painter.save()
-            painter.rotate(360.0 / teeth * i)
-            painter.setPen(QPen(QColor(120, 230, 245, 180), 2.0, Qt.SolidLine, Qt.RoundCap))
-            painter.drawLine(
-                0, int(-(tooth_r_outer - tooth_len)),
-                0, int(-tooth_r_outer)
-            )
-            painter.restore()
-        painter.restore()
-
-        # --- Thin inner ring ---
-        inner_ring_radius = housing_radius * 0.55
+        # ---- Segmented turbine ring (arc-reactor blades) ----
+        blade_r = outer_r - 6
+        pen = QPen(QColor(120, 235, 255, 225))
+        pen.setWidthF(4.0)
+        pen.setCapStyle(Qt.FlatCap)
+        painter.setPen(pen)
         painter.setBrush(Qt.NoBrush)
-        painter.setPen(QPen(QColor(150, 235, 255, 200), 1.6))
-        painter.drawEllipse(
-            int(cx - inner_ring_radius), int(cy - inner_ring_radius),
-            int(inner_ring_radius * 2), int(inner_ring_radius * 2)
-        )
+        segments = 8
+        span_deg = 26
+        blade_rect = QRectF(cx - blade_r, cy - blade_r, blade_r * 2, blade_r * 2)
+        for i in range(segments):
+            start_angle = int((360 / segments) * i * 16)
+            painter.drawArc(blade_rect, start_angle, span_deg * 16)
 
-        # --- Glowing core (bright cyan-white center, like an AI orb) ---
-        core_radius = housing_radius * 0.38
-        core = QRadialGradient(cx, cy, core_radius)
-        core.setColorAt(0.0, QColor(235, 255, 255, 255))
-        core.setColorAt(0.35, QColor(120, 235, 255, 255))
-        core.setColorAt(1.0, QColor(0, 160, 190, 60))
-        painter.setBrush(core)
+        # ---- Bright glowing core ----
+        core_r = outer_r * 0.42
+        core = QRadialGradient(cx, cy, core_r)
+        core.setColorAt(0.0, QColor(255, 255, 255, 255))
+        core.setColorAt(0.35, QColor(150, 240, 255, 255))
+        core.setColorAt(1.0, QColor(0, 180, 210, 50))
         painter.setPen(Qt.NoPen)
-        painter.drawEllipse(
-            int(cx - core_radius), int(cy - core_radius),
-            int(core_radius * 2), int(core_radius * 2)
-        )
+        painter.setBrush(core)
+        painter.drawEllipse(QPointF(cx, cy), core_r, core_r)
+
+        # ---- Center hot-spot ----
+        painter.setBrush(QColor(255, 255, 255, 235))
+        painter.drawEllipse(QPointF(cx, cy), core_r * 0.28, core_r * 0.28)
 
         painter.end()
 
@@ -284,8 +290,11 @@ class FloatingJarvisButton(QWidget):
                 if moved < DRAG_THRESHOLD:
                     return
                 self._dragging = True
-                self.hide_menu()
+                # A drag is starting - don't leave a stale menu behind.
+                self._quick_actions.hide()
             self.move(current - self._drag_offset)
+            if self._quick_actions.isVisible():
+                self._quick_actions.reposition(self.geometry())
 
     def mouseReleaseEvent(self, event):
         if event.button() != Qt.LeftButton:
@@ -293,15 +302,35 @@ class FloatingJarvisButton(QWidget):
         if self._dragging:
             self._dragging = False
             self._keep_on_screen()
-        else:
-            # Single click -> quick-action menu (mic / transcript), NOT the
-            # full GUI. Double-click (handled below) opens the full GUI.
-            self.toggle_menu()
+            return
 
-    def mouseDoubleClickEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.hide_menu()
-            self.toggle_main_window()
+        # Not a drag - queue this as a click and wait briefly to see if a
+        # second one arrives (making it a double click).
+        self._pending_clicks += 1
+        if self._pending_clicks == 1:
+            self._click_timer.start(QApplication.doubleClickInterval())
+        else:
+            self._click_timer.stop()
+            self._pending_clicks = 0
+            self._handle_double_click()
+
+    # ------------------------------------------------------------------
+    def _handle_single_click(self):
+        self._pending_clicks = 0
+        self.toggle_quick_actions()
+
+    def _handle_double_click(self):
+        self._quick_actions.hide()
+        self.toggle_main_window()
+
+    # ------------------------------------------------------------------
+    def toggle_quick_actions(self):
+        if self._quick_actions.isVisible():
+            self._quick_actions.hide()
+        else:
+            self._quick_actions.reposition(self.geometry())
+            self._quick_actions.show()
+            self._quick_actions.raise_()
 
     # ------------------------------------------------------------------
     def bring_main_window_forward(self):
@@ -324,6 +353,7 @@ class FloatingJarvisButton(QWidget):
 
     # ------------------------------------------------------------------
     def close(self):
-        if getattr(self, "_menu", None) is not None:
-            self._menu.close()
+        self._click_timer.stop()
+        if getattr(self, "_quick_actions", None) is not None:
+            self._quick_actions.close()
         return super().close()
