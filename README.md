@@ -147,16 +147,12 @@ Examples:
 - gemini_api.py
 - Voice.py
 - Face_reco.py
-- index.html
-- style.css
-- script.js
 - sounds/
-
+- voice.py
 ---
 
 # 🚀 Future Improvements
 
-- OCR (Read text from screen)
 - Smart File Search
 - VS Code Automation
 - Reminder System
