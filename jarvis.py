@@ -34,7 +34,7 @@ def speak(audio):
 
 # import eel
 # eel.init("web")
-api_key = "API_KEY"
+api_key = "api"
 JARVIS_PASSWORD = "PASSWORD"
 
 #Notes folder
@@ -70,6 +70,11 @@ def play_scan_sound():
     pygame.mixer.music.load("sounds/scan.mp3")
     pygame.mixer.music.play()
 
+def play_shutdown_sound():
+    pygame.mixer.init()
+    pygame.mixer.music.load("sounds/shutdown.mp3")
+    pygame.mixer.music.play()
+
 # To make the assistant speak, you can use the following code snippet. This code initializes the text-to-speech engine and defines a function to convert text to speech.
 
 
@@ -79,16 +84,15 @@ def wishMe():
     hour = datetime.datetime.now().hour
 
     if 0 <= hour < 12:
-        speak(random.choice(morning_quotes))
+        speak("System Check! Good Morning Sir!")
 
     elif 12 <= hour < 18:
-        speak("Good Afternoon!")
+        speak("System Check! Good Afternoon Sir!")
 
     else:
-        speak("Good Evening!")
+        speak("System Check! Good Evening Sir!")
 
-    speak("System check !")
-    speak("Hello Sir....  , I am Jarvis. Please tell me how may I help you")
+    speak("Jarvis here ! I am ready when you need me.")
  # Function for email
 def sendEmail(receiver, message):
 
@@ -292,9 +296,15 @@ def process_gui_command(query):
         # Exit anytime
     if "goodbye " in query or"good bye jarvis" in query or "goodbye jarvis" in query or "good bye" in query:
         speak("Goodbye Sir...Take care")
-        time.sleep(5)
+        time.sleep(3)
+        play_shutdown_sound()
+        time.sleep(2)
         return False
-    
+
+    elif "Hello jarvis" in query or "hello jarvis" in query or "hi jarvis" in query or "hi" in query or "hello" in query:
+        speak("Hello Sir...How may I help you today?")
+        return True
+
     if "open youtube" in query:
         speak("Opening YouTube")
         webbrowser.open("https://www.youtube.com")
@@ -613,6 +623,8 @@ def process_gui_command(query):
         speak("Refreshing all modules.")
         speak("Refresh complete.All systems are online.")
 
+
+
         
 # System information
     elif "system info" in query or "system information" in query:
@@ -669,7 +681,7 @@ def process_gui_command(query):
 #To send whatsapp messages instantly, you can use the following code snippet. This code listens for the command "send whatsapp message" followed by the recipient's number and the message content, and sends the message using the pywhatkit library.
     elif "send whatsapp to" in query:
 
-        name = query.replace("send whatsapp to ", "").strip()
+        name = query.replace("send whatsapp to", "").strip()
 
         if name in contacts:
 
@@ -677,13 +689,50 @@ def process_gui_command(query):
 
             message = takeCommand()
 
-            pywhatkit.sendwhatmsg_instantly(contacts[name],message,wait_time=10,tab_close=False)
+            if message == "None":
+                speak("I could not understand the message.")
+                return True
 
-            speak("Message sent successfully")
+            speak(f"You said, {message}")
+            speak("Should I send it?")
+
+            confirmation = takeCommand().lower()
+
+            if (
+                "yes" in confirmation
+                or "send" in confirmation
+                or "okay" in confirmation
+                or "confirm" in confirmation
+            ):
+
+                speak("Sending your message.")
+
+                pywhatkit.sendwhatmsg_instantly(
+                    contacts[name],
+                    message,
+                    wait_time=10,
+                    tab_close=False
+                )
+
+                # Wait for WhatsApp to finish loading
+                time.sleep(8)
+
+                # Press Send
+                pyautogui.press("enter")
+
+                # Give WhatsApp time to actually send
+                time.sleep(2)
+
+                # Close tab
+                pyautogui.hotkey("ctrl", "w")
+
+                speak("Message sent successfully.")
+
+            else:
+                speak("Message cancelled.")
 
         else:
-
-            speak("Contact not found")
+            speak("Contact not found.")
 
     #To take notes and save them to a text file, you can use the following code snippet. This code listens for the command "take note" followed by the note content, and saves it to a text file.
     elif "write a note" in query:
