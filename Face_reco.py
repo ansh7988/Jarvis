@@ -2,9 +2,10 @@ import getpass
 import face_recognition
 import cv2
 import os
-import pyttsx3
 import webbrowser
 from datetime import datetime
+from voice import speak
+import numpy as np
 # -------------------- TTS --------------------
 
 def write_log(message):
@@ -15,10 +16,6 @@ def write_log(message):
 
         file.write(f"[{current_time}] {message}\n")
 
-def speak(text):
-    engine = pyttsx3.init()
-    engine.say(text)
-    engine.runAndWait()
 
 # -------------------- Load Known Faces --------------------
 
@@ -77,17 +74,26 @@ while True:
 
         matches = face_recognition.compare_faces(
             known_encodings,
+            face_encoding,
+            tolerance=0.6
+        )
+
+        face_distances = face_recognition.face_distance(
+            known_encodings,
             face_encoding
         )
 
+        best_match_index = np.argmin(face_distances)
+
         name = "Unknown"
 
-        if True in matches:
-
+        if matches[best_match_index] and face_distances[best_match_index] < 0.6:
             name = "Anshdeep"
 
             speak("Welcome Anshdeep")
             speak("Face verified")
+
+            ...
 
             # gui_path = os.path.abspath("Jarvis_UI/index.html")
             # webbrowser.open_new_tab(f"file:///{gui_path}")
@@ -164,23 +170,7 @@ cv2.destroyAllWindows()
 
 if jarvis_started:
 
-    MAX_ATTEMPTS = 3
+    import subprocess
 
-    for attempt in range(MAX_ATTEMPTS):
-        password = getpass.getpass("Enter the password to access Jarvis: ")
-        if password == "pass_key":
-            speak("Authentication Successful! Welcome to Jarvis!")
-            speak("Starting Jarvis")
-            import subprocess
-            import sys
-
-            subprocess.Popen(
-    ["py","-3.12", "JGUI.py"])
-            exit()
-
-        remaining = MAX_ATTEMPTS - attempt - 1
-
-        if remaining > 0:
-            speak(f"Authentication failed. {remaining} attempts remaining.")
-        else:
-            speak("Access denied. Maximum attempts reached.")
+subprocess.run(["py","login_window.py"])
+exit()
