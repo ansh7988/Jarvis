@@ -170,4 +170,8 @@ B.Tech Computer Science Engineering
 
 Python Developer | AI Enthusiast | Desktop Automation | CPP | Full Stack Learner
 
+Email - anshdeep7988@gmail.com
+
+Linkedin - https://www.linkedin.com/in/anshdeep-singh-392440378/
+
 Inspired by Marvel's J.A.R.V.I.S.
