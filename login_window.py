@@ -270,7 +270,7 @@ class LoginWindow(ctk.CTk):
     def _on_unlock(self):
         password = self.password_entry.get()
 
-        if password == "crazy coder":
+        if password == "PASSWORD":
             self.set_status("Access Granted", success=True)
 
             speak("Authentication successful. Welcome to Jarvis.")
