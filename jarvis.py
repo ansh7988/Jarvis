@@ -20,6 +20,7 @@ from memory import remember, recall
 from voice import speak as _voice_speak, stop_speaking, is_speaking
 from vision import analyze_screen
 from transcript_emitter import emit_speech
+from detector import vision_search
 
 
 def speak(audio):
@@ -35,7 +36,7 @@ def speak(audio):
 # import eel
 # eel.init("web")
 api_key = "api"
-JARVIS_PASSWORD = "PASSWORD"
+JARVIS_PASSWORD = "pass"
 
 #Notes folder
 NOTES_FOLDER = "Jarvis_Notes.txt"
@@ -84,7 +85,7 @@ def wishMe():
     hour = datetime.datetime.now().hour
 
     if 0 <= hour < 12:
-        speak("System Check! Good Morning Sir!")
+        speak("System Check!Subha ho gyi sir , utt jao !")
 
     elif 12 <= hour < 18:
         speak("System Check! Good Afternoon Sir!")
@@ -92,7 +93,7 @@ def wishMe():
     else:
         speak("System Check! Good Evening Sir!")
 
-    speak("Jarvis here ! I am ready when you need me.")
+    speak(" Mera naam Aavriti hai ! meri zarroorat padi to batana ")
  # Function for email
 def sendEmail(receiver, message):
 
@@ -249,7 +250,50 @@ def process_gui_command(query):
 
         return True
 
+#Lens feature code
+    elif (
+        "what is this" in query
+        or "analyze this" in query
+        or "identify this" in query
+        or "what am i holding" in query
+        or "what do you see" in query
+        or "what is this object" in query
+        or "start vision mode" in query
+        or "start lens mode " in query
+        or "open camera" in query
+    ):
 
+        if gui_window:
+            gui_window.response_label.setText("📷 PREPARING CAMERA...")
+
+        speak("Certainly sir. Please hold the object at centre")
+
+        play_scan_sound()
+
+        if gui_window:
+            gui_window.response_label.setText("👁️ ANALYZING OBJECT...")
+
+        vision_prompt = """
+        You are Jarvis.
+
+        Analyze this image carefully.
+
+        Identify the main object the user is intentionally showing.
+
+        Ignore the background unless it is important.
+
+        Reply naturally in 2-3 sentences.
+        """
+
+        response = vision_search(vision_prompt)
+
+        if gui_window:
+            gui_window.response_label.setText(response)
+
+        speak(response)
+        return True
+
+        #Analyze screen feature code
     elif (
         "analyze my screen" in query
         or "analyse my screen" in query
