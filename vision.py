@@ -1,16 +1,13 @@
-import google.generativeai as genai
+from google import genai
 import pyautogui
 import time
 from PIL import Image
 
 # ---------------- Gemini ----------------
 
-API_KEY = "new_api"
+API_KEY = "Api"
 
-genai.configure(api_key=API_KEY)
-
-model = genai.GenerativeModel("gemini-2.5-flash")
-
+client = genai.Client(api_key=API_KEY)
 
 # ---------------- Screenshot ----------------
 
@@ -26,21 +23,11 @@ def analyze_screen(prompt):
 
     print("Preparing to analyze screen...")
 
-    time.sleep(5)   # Give user time to prepare the screen
+    time.sleep(5)  # Give user time to prepare the screen
 
     image_path = capture_screen()
 
     image = Image.open(image_path)
 
-
-    response = model.generate_content([
-        prompt,
-        image
-    ])
-
-    return response.text
-
-
-if __name__ == "__main__":
-
-    print(analyze_screen())
+    response = client.models.generate_content(
+        model="gemini-2.5")
