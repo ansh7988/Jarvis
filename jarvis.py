@@ -85,7 +85,7 @@ def wishMe():
     hour = datetime.datetime.now().hour
 
     if 0 <= hour < 12:
-        speak("System Check!Subha ho gyi sir , utt jao !")
+        speak("System Check! Good Morning Sir!")
 
     elif 12 <= hour < 18:
         speak("System Check! Good Afternoon Sir!")
@@ -93,7 +93,7 @@ def wishMe():
     else:
         speak("System Check! Good Evening Sir!")
 
-    speak(" Mera naam Aavriti hai ! meri zarroorat padi to batana ")
+    speak("Jarvis here ! How may I help you today.")
  # Function for email
 def sendEmail(receiver, message):
 
@@ -154,7 +154,7 @@ morning_quotes = [
 ]
 
 
-contacts = {"myself": "+91 9023143111", "brother": "+91 8054143121", "mom": "+91 8054143121", "dad": "+91 8288827818"}
+contacts = {"myself": "+91 90111", "brother": "+91 8051", "mom": "+91 ", "dad": "+91"}
 
 # To take voice commands from the user, you can use the following code snippet. This code listens for audio input and converts it to text using Google's speech recognition API.
 
