@@ -1,72 +1,66 @@
 import asyncio
 import edge_tts
-from playsound3 import playsound
-import tempfile
 import threading
 import queue
-import os
+import subprocess
 
-# CHANGED: Switched to Ryan (British Jarvis vibe). 
-# Change back to "en-US-GuyNeural" if you prefer the David/American style.
-VOICE = "en-US-GuyNeural" 
+# ---------------------------------------------------------------------------
+# edge_tts, but STREAMED straight into ffplay instead of:
+#   generate full mp3 -> save to disk -> read file -> play
+# This starts audio the moment the first chunk arrives instead of waiting
+# for the whole sentence to finish generating/downloading. No temp files,
+# no disk I/O at all.
+#
+# Requires ffmpeg (ffplay) installed and on PATH.
+# ---------------------------------------------------------------------------
 
-# Queue for speech
+VOICE = "en-US-GuyNeural"
+RATE = "+25%"
+
 speech_queue = queue.Queue()
-
-# --- Interrupt / "stop" support -------------------------------------------
-# speaking_event is set for as long as audio is actively playing, so other
-# parts of the app can check is_speaking() to know whether it's worth
-# listening for a "stop" command right now.
 speaking_event = threading.Event()
-_current_sound = None
-_current_sound_lock = threading.Lock()
+
+_current_process = None
+_current_process_lock = threading.Lock()
 
 
-async def _generate_and_play(text):
-    global _current_sound
+async def _generate_and_stream(text):
+    global _current_process
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
-        filename = f.name
+    process = subprocess.Popen(
+        ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", "-"],
+        stdin=subprocess.PIPE,
+    )
+    with _current_process_lock:
+        _current_process = process
+    speaking_event.set()
 
     try:
-        # FIXED: Changed rate from "-10%" to "+25%" for snappier speech
-        communicate = edge_tts.Communicate(
-            text,
-            VOICE,
-            rate="+20%" 
-        )
-
-        await communicate.save(filename)
-
-        # Non-blocking playback so we can hold onto a handle and stop() it
-        # mid-sentence if the user interrupts.
-        sound = playsound(filename, block=False)
-        with _current_sound_lock:
-            _current_sound = sound
-        speaking_event.set()
-
-        while sound.is_alive():
-            await asyncio.sleep(0.05)
-
-    finally:
-        with _current_sound_lock:
-            _current_sound = None
-        speaking_event.clear()
+        communicate = edge_tts.Communicate(text, VOICE, rate=RATE)
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                try:
+                    process.stdin.write(chunk["data"])
+                except (BrokenPipeError, OSError):
+                    break  # pipe closed because stop_speaking() killed it
         try:
-            os.remove(filename)
-        except:
+            process.stdin.close()
+        except Exception:
             pass
+        process.wait()
+    finally:
+        with _current_process_lock:
+            _current_process = None
+        speaking_event.clear()
 
 
 def _speaker():
     while True:
         text = speech_queue.get()
-
         try:
-            asyncio.run(_generate_and_play(text))
+            asyncio.run(_generate_and_stream(text))
         except Exception as e:
             print("Voice Error:", e)
-
         speech_queue.task_done()
 
 
@@ -96,10 +90,11 @@ def stop_speaking():
     except queue.Empty:
         pass
 
-    with _current_sound_lock:
-        sound = _current_sound
-    if sound is not None:
+    with _current_process_lock:
+        process = _current_process
+    if process is not None:
         try:
-            sound.stop()
+            process.kill()
         except Exception:
             pass
+    speaking_event.clear()
