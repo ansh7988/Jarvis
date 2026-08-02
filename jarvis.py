@@ -35,13 +35,13 @@ def speak(audio):
 
 # import eel
 # eel.init("web")
-api_key = "api"
-JARVIS_PASSWORD = "pass"
+api_key = "b12a6ef2b4862eef2da6cb71bb9ecdd9"
+JARVIS_PASSWORD = "crazy coder"
 
 #Notes folder
 NOTES_FOLDER = "Jarvis_Notes.txt"
 EMAIL_ADDRESS= "anshdeep7988@gmail.com"
-EMAIL_PASSWORD = "email"
+EMAIL_PASSWORD = "puvrvpeeobgnyuto"
 
 gui_window = None
 active = False
@@ -85,7 +85,7 @@ def wishMe():
     hour = datetime.datetime.now().hour
 
     if 0 <= hour < 12:
-        speak("System Check! Good Morning Sir!")
+        speak("System Check!Subha ho gyi sir , utt jao !")
 
     elif 12 <= hour < 18:
         speak("System Check! Good Afternoon Sir!")
@@ -93,7 +93,7 @@ def wishMe():
     else:
         speak("System Check! Good Evening Sir!")
 
-    speak("Jarvis here ! How may I help you today.")
+    speak(" Mera naam Aavriti hai ! meri zarroorat padi to batana ")
  # Function for email
 def sendEmail(receiver, message):
 
@@ -154,7 +154,7 @@ morning_quotes = [
 ]
 
 
-contacts = {"myself": "+91 90111", "brother": "+91 8051", "mom": "+91 ", "dad": "+91"}
+contacts = {"myself": "+91 9023143111", "brother": "+91 8054143121", "mom": "+91 8054143121", "dad": "+91 8288827818"}
 
 # To take voice commands from the user, you can use the following code snippet. This code listens for audio input and converts it to text using Google's speech recognition API.
 
