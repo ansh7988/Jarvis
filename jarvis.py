@@ -300,7 +300,6 @@ def process_gui_command(query):
         or "analyze screen" in query
         or "analyse screen" in query
         or "what's on my screen" in query
-        or "explain my screen" in query
         or "explain screen" in query
     ):
         if gui_window:
