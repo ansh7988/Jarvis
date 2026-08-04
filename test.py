@@ -86,7 +86,7 @@ def sendEmail(receiver, message):
 
     server.quit()
 
-email_contacts = {"Anshdeep Singh": "anshdeep7988@gmail.com","dad": "anshbatra1992@gmail.com"}
+email_contacts = {"Anshdeep Singh": "anshdeep7988@gmail.com","dad": "anshbat@gmail.com"}
 
 
 english_jokes = [
@@ -131,7 +131,7 @@ morning_quotes = [
 ]
 
 
-contacts = {"myself": "+91 9023143111", "brother": "+91 8054143121", "mom": "+91 8054143121", "dad": "+91 8288827818"}
+contacts = {"myself": "+91 11", "brother": "+91 81", "mom": "+91 80521", "dad": "+91 27818"}
 
 # To take a password input from the user and grant access to Jarvis, you can use the following code snippet. This code prompts the user for a password and checks if it matches the predefined password before allowing access to the assistant.
 MAX_ATTEMPTS = 3
