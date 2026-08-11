@@ -1,5 +1,6 @@
 from google import genai
 
+
 # Replace with your Gemini API Key
 API_KEY = "api"
 
