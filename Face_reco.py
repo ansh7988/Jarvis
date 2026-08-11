@@ -8,6 +8,7 @@ from voice import speak
 import numpy as np
 # -------------------- TTS --------------------
 
+
 def write_log(message):
 
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
