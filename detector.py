@@ -2,6 +2,7 @@ import cv2
 from ultralytics import YOLO
 import time
 from gemini_lens import analyze_image
+#import ocr later
 
 # Load model only once
 model = YOLO("yolo11n.pt")
