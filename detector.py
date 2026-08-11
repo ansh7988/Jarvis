@@ -5,8 +5,6 @@ from gemini_lens import analyze_image
 
 # Load model only once
 model = YOLO("yolo11n.pt")
-
-
 def vision_search(user_prompt):
 
     cap = cv2.VideoCapture(0)
