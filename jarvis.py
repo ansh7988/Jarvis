@@ -110,7 +110,7 @@ def sendEmail(receiver, message):
 
     server.quit()
 
-email_contacts = {"anshdeep Singh": "anshdeep7988@gmail.com","dad": "anshbatra1992@gmail.com"}
+email_contacts = {"anshdeep Singh": "anshdeep7988@gmail.com","dad": "anshbatra1992@gmail.com", "ansh 2" ": "anshbatra0806@gmail.com"}
 
 
 english_jokes = [
