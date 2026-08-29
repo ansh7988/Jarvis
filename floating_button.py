@@ -2,6 +2,8 @@
 floating_button.py
 
 
+
+
 A small, always-on-top, draggable "arc reactor" orb - similar in spirit to
 Windows Copilot's floating button or the Android Edge Panel handle. It is a
 completely independent top-level widget, so it keeps floating above Chrome,
