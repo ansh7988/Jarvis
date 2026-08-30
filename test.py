@@ -39,6 +39,7 @@ def play_startup_sound():
     pygame.mixer.music.play()
 
 
+
 # To make the assistant speak, you can use the following code snippet. This code initializes the text-to-speech engine and defines a function to convert text to speech.
 def speak(audio):
     update_status("RESPONDING")
