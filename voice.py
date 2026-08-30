@@ -54,6 +54,7 @@ async def _generate_and_stream(text):
         speaking_event.clear()
 
 
+
 def _speaker():
     while True:
         text = speech_queue.get()
