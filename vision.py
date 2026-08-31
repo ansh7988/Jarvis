@@ -4,7 +4,6 @@ import time
 from PIL import Image
 
 # ---------------- Gemini ----------------
-
 API_KEY = "Api"
 
 client = genai.Client(api_key=API_KEY)
