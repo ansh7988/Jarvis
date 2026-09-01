@@ -838,6 +838,7 @@ class JarvisWindow(QMainWindow):
         else:
             super().keyPressEvent(event)
 
+
 def main():
     import subprocess
     import sys
