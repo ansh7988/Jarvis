@@ -60,6 +60,7 @@ Commands:
 - Solve this error
 - Explain this error
 - Analyze this error
+  
 
 Features:
 - Detects visible error messages.
@@ -67,6 +68,7 @@ Features:
 - Suggests possible solutions.
 - Displays analysis status in the GUI.
 - Gracefully handles Gemini API quota errors.
+- Analysis object's in the user's hand
 
 ---
 
