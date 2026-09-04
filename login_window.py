@@ -16,6 +16,8 @@ Run directly to preview the window:
     python login_window.py
 """
 
+
+
 import tkinter as tk
 import customtkinter as ctk
 
