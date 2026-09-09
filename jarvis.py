@@ -8,7 +8,6 @@ import wikipedia
 import pyautogui
 import pyjokes
 import psutil
-
 import random
 import time
 import requests
