@@ -5,7 +5,6 @@ Windows Copilot's floating button or the Android Edge Panel handle. It is a
 completely independent top-level widget, so it keeps floating above Chrome,
 VS Code, File Explorer, etc. even while the main JarvisWindow is behind
 those apps.
-
 Interaction model:
 - Single click  -> pop open a small "quick actions" menu right next to the
                     orb, with two round buttons: Mic and Transcript. Neither
