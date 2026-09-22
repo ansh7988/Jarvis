@@ -37,7 +37,6 @@ from PySide6.QtGui import QPainter, QColor, QPen, QRadialGradient
 from PySide6.QtWidgets import (
     QWidget, QApplication, QPushButton, QVBoxLayout, QGraphicsDropShadowEffect
 )
-
 SIZE = 56
 MARGIN_FROM_EDGE = 18
 DRAG_THRESHOLD = 4  # pixels of movement before a press counts as a drag, not a click
