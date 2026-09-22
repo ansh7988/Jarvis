@@ -30,9 +30,6 @@ def speak(audio):
     only mirrors the exact same text that's about to be spoken."""
     emit_speech(audio)
     _voice_speak(audio)
-
-
-
 # import eel
 # eel.init("web")
 api_key = "b12a6ef2b4862eef2da6cb71bb9ecdd9"
