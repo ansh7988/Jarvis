@@ -4,7 +4,6 @@ from google import genai
 API_KEY = "Api"
 client = genai.Client(api_key=API_KEY)
 import re
-
 def clean_for_speech(text):
     """
     Removes Markdown and formatting symbols so Jarvis speaks naturally.
