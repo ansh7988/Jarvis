@@ -1,7 +1,6 @@
 """
 JARVIS-style Desktop AI Assistant GUI
 Built with PySide6
-
 Features:
 - Animated wireframe sphere "neural core" with a twinkling star layer
   (rotating, pulsing, silver/white glow on pure black)
