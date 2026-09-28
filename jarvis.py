@@ -22,7 +22,6 @@ from vision import analyze_screen
 from transcript_emitter import emit_speech
 from detector import vision_search
 
-
 def speak(audio):
     """Wraps voice.speak() so every response Jarvis says is also pushed,
     verbatim, to the GUI transcript panel in real time. This never
