@@ -31,7 +31,6 @@ to see whether a second one follows before deciding which action to take.
 This widget deliberately has no animation loop and no heavy painting, so it
 costs effectively nothing while idle.
 """
-
 from PySide6.QtCore import Qt, QPoint, QPointF, QRectF, QTimer
 from PySide6.QtGui import QPainter, QColor, QPen, QRadialGradient
 from PySide6.QtWidgets import (
