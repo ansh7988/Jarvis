@@ -10,7 +10,6 @@ def vision_search(user_prompt):
 
     if not cap.isOpened():
         return "Sorry, I couldn't open the webcam."
-
     countdown = 5
     start_time = time.time()
     captured_frame = None
