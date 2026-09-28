@@ -17,7 +17,6 @@ if not API_KEY:
         "GEMINI_API_KEY environment variable is not set. "
         "Set it before running Jarvis."
     )
-
 client = genai.Client(api_key=API_KEY)
 
 # ---------------- Screenshot ----------------
